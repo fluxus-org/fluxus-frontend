@@ -10,6 +10,9 @@
           <AppButton class="p-panel-header-icon p-link mr-2" @click="showSchemaModal(table.name)">
             <span class="pi pi-info-circle"></span>
           </AppButton>
+          <AppButton class="p-panel-header-icon p-link mr-2" @click="trainTable(table.name)">
+            Train
+          </AppButton>
           <!-- <Menu ref="menu" id="config_menu" :model="items" popup /> -->
         </template>
         <DataTable
@@ -31,13 +34,13 @@
         </template>
         <template #content>
           <div class="prompt-suggestions-container">
-            <div v-for="promptSuggestion in promptSuggestions" :key="promptSuggestion" class="prompt-suggestion">
+            <div v-for="promptSuggestion in promptSuggestions" :key="promptSuggestion" @click="addTableWithPrompt(promptSuggestion)" class="prompt-suggestion">
               {{ promptSuggestion }}
             </div>
           </div>
           <AppTextarea rows="3" v-model="newTablePrompt" style="width: 100%" />
           <div style="text-align: right; margin-top: 0.5rem">
-            <AppButton @click="addTable" :loading="addingTable">Add</AppButton>
+            <AppButton @click="addTable" :loading="addingTable" :disabled="newTablePrompt.length == 0">Add</AppButton>
           </div>
         </template>
       </Card>
@@ -46,7 +49,15 @@
 
   <AppDialog v-model:visible="schemaModalVisible" modal header="Schema" :style="{ width: '50vw' }">
     <div v-if="selectedSchema == null">Loading schema details...</div>
-    <JsonViewer v-else :value="selectedSchema" />
+    <div v-else>
+      <JsonViewer :value="selectedSchema" />
+      <!-- <div class="sql-code" v-if="selectedSchema.sql_code">{{ selectedSchema.sql_code }}</div> -->
+    </div>
+  </AppDialog>
+
+  <AppDialog v-model:visible="trainModalVisible" modal header="Train" :style="{ width: '50vw' }">
+    Select the field to train on using IntegratedML
+    <Dropdown v-model="selectedColumn" :options="columns[selectedTable]" />
   </AppDialog>
 
 </template>
@@ -62,6 +73,7 @@ import Card from 'primevue/card';
 import AppTextarea from 'primevue/textarea';
 import AppButton from "primevue/button";
 import AppDialog from 'primevue/dialog';
+import Dropdown from "primevue/dropdown";
 import { JsonViewer } from "vue3-json-viewer";
 import type { AppTable } from "@/types";
 import * as vis from "vis-network/standalone";
@@ -81,6 +93,7 @@ export default defineComponent({
     AppTextarea,
     AppButton,
     AppDialog,
+    Dropdown,
     JsonViewer
   },
 
@@ -122,6 +135,12 @@ export default defineComponent({
     // });
 
     const edges = new vis.DataSet<vis.Edge>([]);
+
+    const edgeUpdater = async () => {
+      const newEdges = await api.getDataFlow();
+      edges.add(newEdges);
+    };
+    edgeUpdater();
 
     const graphData = {
       nodes: nodes,
@@ -185,21 +204,36 @@ export default defineComponent({
     const newTablePrompt = ref("");
 
     const addingTable = ref(false);
-    const addTable = async () => {
+
+    const addTableWithPrompt = async (prompt: string) => {
       addingTable.value = true;
-      await sleep(1000);
-      const table = api.getNewTable();
+      const addTableResp = await api.addNewTable(prompt);
       addingTable.value = false;
 
-      tables.value.push(table);
-      nodes.add({ id: table.name, label: table.name });
-      
-      edges.add([
-        { from: "P_UM", to: "P_PAQ"},
-        { from: "P_UM", to: "P_MCQ"}
-      ] as vis.Edge[]);
+      const tableData = await api.getTable(addTableResp.tableName);
+      tables.value.push(tableData);
+      tableNodeUpdater();
 
-      nextTick(() => scrollToTable(table.name));
+      edges.add(addTableResp.edges);
+      
+      nextTick(() => scrollToTable(addTableResp.tableName));
+    }
+
+    const addTable = async () => {
+      // addingTable.value = true;
+      // await sleep(1000);
+      // const table = api.getNewTable();
+      // addingTable.value = false;
+
+      // tables.value.push(table);
+      // nodes.add({ id: table.name, label: table.name });
+      
+      // edges.add([
+      //   { from: "P_UM", to: "P_PAQ"},
+      //   { from: "P_UM", to: "P_MCQ"}
+      // ] as vis.Edge[]);
+
+      await addTableWithPrompt(newTablePrompt.value);
     };
 
     const schemaModalVisible = ref(false);
@@ -209,6 +243,14 @@ export default defineComponent({
       selectedSchema.value = null;
       selectedSchema.value = await firestoreApi.getSchema(tableName);
     }
+
+    const trainModalVisible = ref(false);
+    const selectedTable = ref(""); 
+    const selectedColumn = ref<any>(null);
+    const trainTable = (table: string) => {
+      trainModalVisible.value = true;
+      selectedTable.value = table;
+    };
 
     return {
       tables,
@@ -220,7 +262,12 @@ export default defineComponent({
       addingTable,
       schemaModalVisible,
       showSchemaModal,
-      selectedSchema
+      selectedSchema,
+      addTableWithPrompt,
+      trainModalVisible,
+      selectedColumn,
+      trainTable,
+      selectedTable,
     };
   }
 });
@@ -274,5 +321,11 @@ export default defineComponent({
   border-radius: 10px;
   padding: 0.5rem;
   margin: 0.5rem;
+}
+
+.sql-code {
+  font-family: monospace;
+  padding: 1rem;
+  margin: 1rem;
 }
 </style>
