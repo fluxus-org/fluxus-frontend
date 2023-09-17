@@ -68,7 +68,7 @@
 
 <script lang="ts">
 import { computed, defineComponent, ref, onMounted, nextTick, watch } from "vue";
-import { api } from "../api";
+import { api, mockApi } from "../api";
 import { firestoreApi } from "../api/firebase";
 import DataTable from "primevue/datatable";
 import Column from "primevue/column";
@@ -107,7 +107,8 @@ export default defineComponent({
     const loadingTables = ref(false);
     const loadTables = async () => {
       loadingTables.value = true;
-      const tableData = await api.getTables();
+      // const tableData = await api.getTables();
+      const tableData = await mockApi.getTables();
       loadingTables.value = false;
 
       tables.value.splice(0);
@@ -141,8 +142,8 @@ export default defineComponent({
     const edges = new vis.DataSet<vis.Edge>([]);
 
     const edgeUpdater = async () => {
-      const newEdges = await api.getDataFlow();
-      edges.add(newEdges);
+      // const newEdges = await api.getDataFlow();
+      // edges.add(newEdges);
     };
     edgeUpdater();
 
@@ -211,16 +212,17 @@ export default defineComponent({
 
     const addTableWithPrompt = async (prompt: string) => {
       addingTable.value = true;
-      const addTableResp = await api.addNewTable(prompt);
+      // const addTableResp = await api.addNewTable(prompt);
+      const tableData = mockApi.getNewTable();
       addingTable.value = false;
 
-      const tableData = await api.getTable(addTableResp.tableName);
+      // const tableData = await api.getTable(addTableResp.tableName);
       tables.value.push(tableData);
       tableNodeUpdater();
 
-      edges.add(addTableResp.edges);
+      edges.add([{ from: "Fetal Health Data", to: "Association Table"}, { from: "Heart Failure Data", to: "Association Table"}]);
       
-      nextTick(() => scrollToTable(addTableResp.tableName));
+      nextTick(() => scrollToTable(tableData.name));
     }
 
     const addTable = async () => {
