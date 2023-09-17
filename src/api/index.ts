@@ -36,7 +36,7 @@ export const api = {
         "ngrok-skip-browser-warning": "620",
       }),
     }).then(d => d.json());
-    return tableData;
+    return { name: tableName, data: this.processTableData(tableData) };
   },
 
   async getTables(): Promise<AppTable[]> {
@@ -105,8 +105,8 @@ export const api = {
 
     const edges = [];
     for (let tableStr of tableList) {
-      if (tableStr == resp.name) continue;
       tableStr = tableStr.split("::")[tableStr.split("::").length - 1];
+      if (tableStr == resp.name) continue;
       edges.push({ from: tableStr, to: resp.name });
     }
 
