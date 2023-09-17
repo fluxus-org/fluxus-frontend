@@ -3,7 +3,15 @@
     <div id="tables-view">
       <h1 style="padding: 1rem">Data Sources</h1>
 
+      <p v-if="loadingTables" style="padding: 1rem;">Loading tables...</p>
+
       <Panel v-for="table in tables" :key="table.name" :header="table.name" class="table-panel animate__animated animate__zoomIn" :data-table-name="table.name">
+        <template #icons>
+          <AppButton class="p-panel-header-icon p-link mr-2" @click="showSchemaModal(table.name)">
+            <span class="pi pi-info-circle"></span>
+          </AppButton>
+          <!-- <Menu ref="menu" id="config_menu" :model="items" popup /> -->
+        </template>
         <DataTable
           :value="table.data"
           tableStyle="max-width: 100%"
@@ -35,17 +43,26 @@
       </Card>
     </div>
   </div>
+
+  <AppDialog v-model:visible="schemaModalVisible" modal header="Schema" :style="{ width: '50vw' }">
+    <div v-if="selectedSchema == null">Loading schema details...</div>
+    <JsonViewer v-else :value="selectedSchema" />
+  </AppDialog>
+
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, ref, onMounted, nextTick } from "vue";
+import { computed, defineComponent, ref, onMounted, nextTick, watch } from "vue";
 import { api } from "../api";
+import { firestoreApi } from "../api/firebase";
 import DataTable from "primevue/datatable";
 import Column from "primevue/column";
 import Panel from "primevue/panel";
 import Card from 'primevue/card';
 import AppTextarea from 'primevue/textarea';
 import AppButton from "primevue/button";
+import AppDialog from 'primevue/dialog';
+import { JsonViewer } from "vue3-json-viewer";
 import type { AppTable } from "@/types";
 import * as vis from "vis-network/standalone";
 
@@ -63,10 +80,25 @@ export default defineComponent({
     Card,
     AppTextarea,
     AppButton,
+    AppDialog,
+    JsonViewer
   },
 
   setup() {
-    const tables = ref<AppTable[]>(api.getTables());
+    const tables = ref<AppTable[]>([]);
+
+    const loadingTables = ref(false);
+    const loadTables = async () => {
+      loadingTables.value = true;
+      const tableData = await api.getTables();
+      loadingTables.value = false;
+
+      tables.value.splice(0);
+      tables.value.push(...tableData);
+      tableNodeUpdater();
+    };
+    loadTables();
+  
     const columns = computed(() => {
       const cols = {} as any;
       for (const table of tables.value) {
@@ -75,14 +107,23 @@ export default defineComponent({
       return cols;
     });
 
-    const nodesData = [];
-    for (const table of tables.value) {
-      nodesData.push({ id: table.name, label: table.name });
-    }
-    const nodes = new vis.DataSet(nodesData);
-    const edges = new vis.DataSet();
+    const nodes = new vis.DataSet<vis.Node>([]);
 
-    const data = {
+    const tableNodeUpdater = () => {
+      for (const table of tables.value) {
+        if (nodes.get(table.name) == null) {
+          nodes.add(({ id: table.name, label: table.name }));
+        }
+      }
+    };
+    // watch(() => tables.value, () => {
+    //   console.log("in watch");
+    //   tableNodeUpdater();
+    // });
+
+    const edges = new vis.DataSet<vis.Edge>([]);
+
+    const graphData = {
       nodes: nodes,
       edges: edges,
     };
@@ -122,10 +163,10 @@ export default defineComponent({
       });
     }
 
-    onMounted(() => {
+    onMounted(() => {      
       const container = document.getElementById("graph-container");
       if (container == null) throw new Error("container is null");
-      const network = new vis.Network(container, data, options);
+      const network = new vis.Network(container, graphData as any, options);
 
       network.on("click", (data) => {
         if (data.nodes.length) {
@@ -154,20 +195,32 @@ export default defineComponent({
       nodes.add({ id: table.name, label: table.name });
       
       edges.add([
-        { from: "Fetal Health Data", to: "Association Table"},
-        { from: "Heart Failure Data", to: "Association Table"}
+        { from: "P_UM", to: "P_PAQ"},
+        { from: "P_UM", to: "P_MCQ"}
       ] as vis.Edge[]);
 
       nextTick(() => scrollToTable(table.name));
     };
 
+    const schemaModalVisible = ref(false);
+    const selectedSchema = ref<any>(null);
+    const showSchemaModal = async (tableName: string) => {
+      schemaModalVisible.value = true;
+      selectedSchema.value = null;
+      selectedSchema.value = await firestoreApi.getSchema(tableName);
+    }
+
     return {
       tables,
+      loadingTables,
       columns,
       promptSuggestions,
       newTablePrompt,
       addTable,
-      addingTable
+      addingTable,
+      schemaModalVisible,
+      showSchemaModal,
+      selectedSchema
     };
   }
 });
