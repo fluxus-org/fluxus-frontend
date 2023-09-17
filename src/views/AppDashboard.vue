@@ -58,6 +58,10 @@
   <AppDialog v-model:visible="trainModalVisible" modal header="Train" :style="{ width: '50vw' }">
     Select the field to train on using IntegratedML
     <Dropdown v-model="selectedColumn" :options="columns[selectedTable]" />
+
+    <div style="text-align: center; padding-top: 1rem">
+      <AppButton>Train</AppButton>
+    </div>
   </AppDialog>
 
 </template>
@@ -197,8 +201,8 @@ export default defineComponent({
     });
 
     const promptSuggestions = ref([
-      "Take all fetal health rows with a baseline value of over 132",
-      "Join heart patients of age over 65 with trial participants who had platelets below 26000"
+      "Create a table named patient_test_1 with patients that are between 20 and 30 years old based on demographics and have a BMI between 20 and 25. It should contain SEQN, age, BMI, height and weight.",
+      "Create a table named patient_test_2 with patients that are male and have a BMI between 20 and 25. The table should include any sports related survey answers. The table should have the following columns: SEQN, patient age, patient BMI and all sport survey answers."
     ]);
 
     const newTablePrompt = ref("");

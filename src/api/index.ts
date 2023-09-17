@@ -88,33 +88,29 @@ export const api = {
   },
 
   async addNewTable(prompt: string) {
-    const controller = new AbortController();
 
-    const promptResp = await fetchTimeout(apiUrl + "/table/add", 60000, {
-      signal: controller.signal,
-      method: "POST",
+    const promptResp = await fetch(apiUrl + "/tables/add?" + new URLSearchParams({ prompt }), {
+      method: "GET",
       // mode: "cors",
       headers: new Headers({
-        "Content-Type": "application/json",
         "ngrok-skip-browser-warning": "6920",
       }),
-      body: JSON.stringify({ prompt }),
     });
-    const resp = await promptResp.json() as { query: string, tableName: string };
+    const resp = await promptResp.json() as { sql: string, name: string };
 
     console.log(resp);
 
     const parser = new Parser();
-    const { tableList, columnList, ast }  = parser.parse(resp.query);
+    const { tableList, columnList, ast }  = parser.parse(resp.sql);
 
     const edges = [];
     for (let tableStr of tableList) {
-      if (tableStr == resp.tableName) continue;
+      if (tableStr == resp.name) continue;
       tableStr = tableStr.split("::")[tableStr.split("::").length - 1];
-      edges.push({ from: tableStr, to: resp.tableName });
+      edges.push({ from: tableStr, to: resp.name });
     }
 
-    return { edges, tableName: resp.tableName };
+    return { edges, tableName: resp.name };
   },
 
   // Testing
