@@ -1,5 +1,9 @@
 # Fluxus
 
+This project was a submission to HackMIT 2023. [More details here](https://devpost.com/software/fluxus-a4bgv1)
+
+## Setup
+
 This template should help get you started developing with Vue 3 in Vite.
 
 ## Recommended IDE Setup
